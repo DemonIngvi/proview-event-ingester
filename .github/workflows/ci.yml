@@ -102,7 +102,7 @@ jobs:
           provenance: true
           sbom: true
       - name: Scan image
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           severity: CRITICAL,HIGH
