@@ -1,0 +1,70 @@
+{{- if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "app.serviceAccountName" . }}
+  labels: {{- include "app.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+{{- end }}
+{{- if and (not .Values.secret.existingSecret) .Values.secret.values }}
+---
+# Convenience for dev clusters only. In production set secret.existingSecret
+# and manage the Secret with External Secrets / Sealed Secrets / Vault.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "app.fullname" . }}
+  labels: {{- include "app.labels" . | nindent 4 }}
+  annotations:
+    # Must exist before the pre-install migration Job.
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+type: Opaque
+stringData:
+  {{- range $k, $v := .Values.secret.values }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+{{- end }}
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "app.fullname" . }}
+  labels: {{- include "app.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{- include "app.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: ops
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "app.fullname" . }}
+  labels: {{- include "app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "app.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    {{- range $name, $port := .Values.ports }}
+    - ports:
+        - port: {{ $port }}
+          protocol: TCP
+      {{- with (index $.Values.networkPolicy.from $name) }}
+      from: {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    - ports:
+        - port: {{ .Values.opsPort }}
+          protocol: TCP
+      {{- with .Values.networkPolicy.from.ops }}
+      from: {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

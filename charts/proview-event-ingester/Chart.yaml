@@ -1,0 +1,10 @@
+apiVersion: v2
+name: proview-event-ingester
+description: "ProView event-ingester: Kafka to ClickHouse batch loader"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.29.0-0"
+home: https://github.com/DemonIngvi/proview-event-ingester
+sources: [https://github.com/DemonIngvi/proview-event-ingester]
+keywords: [proview, advertising]

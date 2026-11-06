@@ -1,0 +1,97 @@
+# Default values for proview-event-ingester.
+
+image:
+  repository: ghcr.io/demoningvi/proview-event-ingester
+  tag: ""            # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Ignored when autoscaling.enabled=true.
+replicaCount: 2
+args: []
+
+ports: {}     # no inbound traffic: Kafka consumer only
+opsPort: 9090  # /healthz /readyz /metrics
+
+env:
+  LOG_LEVEL: info
+  KAFKA_BROKERS: proview-kafka-kafka-bootstrap:9092
+  KAFKA_TOPIC: proview.events.v1
+  KAFKA_DLQ_TOPIC: proview.events.dlq
+  KAFKA_GROUP: proview-event-ingester
+  CLICKHOUSE_ADDRS: clickhouse-proview:9000
+  CLICKHOUSE_USER: proview
+  # On a ClickHouse cluster use a Replicated database engine:
+  # Replicated('/clickhouse/databases/{db}', '{shard}', '{replica}')
+  CLICKHOUSE_DB_ENGINE: Atomic
+  BATCH_SIZE: "20000"
+  FLUSH_INTERVAL: 1s
+  MAX_BACKOFF: 30s
+  SHUTDOWN_TIMEOUT: 20s
+
+# Sensitive settings are read from a Secret.
+secret:
+  existingSecret: ""   # recommended in production
+  keys: [CLICKHOUSE_PASSWORD]
+  values: {}           # dev only: rendered into a Secret when existingSecret is empty
+
+# Extra env vars from other Secrets: [{name, secretName, key}]
+extraSecretEnv: []
+
+migrations:
+  enabled: true
+  # Use "post-install,pre-upgrade" when the database credentials Secret is
+  # created by an operator in the same release (it does not exist pre-install).
+  hooks: pre-install,pre-upgrade
+
+service:
+  type: ClusterIP
+
+# A batch of 20k rows ~= 10 MiB decoded; two in flight at most.
+resources:
+  requests: { cpu: 200m, memory: 128Mi }
+  limits: { cpu: "1", memory: 512Mi }
+
+# More replicas than topic partitions (24) would sit idle.
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 24
+  targetCPUUtilizationPercentage: 60
+
+# Optional: scale on consumer lag with KEDA instead of CPU (disable autoscaling then).
+keda:
+  enabled: false
+  lagThreshold: "50000"
+  bootstrapServers: proview-kafka-kafka-bootstrap:9092
+
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1
+
+terminationGracePeriodSeconds: 45
+
+serviceAccount:
+  create: true
+  name: ""
+
+ingress:
+  enabled: false
+
+serviceMonitor:
+  enabled: false
+  interval: 15s
+
+networkPolicy:
+  enabled: false
+  from:
+    ops: []
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+volumes: []
+volumeMounts: []

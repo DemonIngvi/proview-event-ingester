@@ -1,0 +1,6 @@
+{{ include "app.fullname" . }} {{ .Chart.AppVersion }} deployed.
+
+Ports:{{ range $n, $p := .Values.ports }} {{ $n }}={{ $p }}{{ end }} ops={{ .Values.opsPort }} (/healthz, /readyz, /metrics)
+
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "app.fullname" . }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "app.fullname" . }} {{ .Values.opsPort }}
